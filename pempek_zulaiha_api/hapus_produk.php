@@ -1,59 +1,49 @@
 <?php
-// Mengatur header agar merespons dalam format JSON
+// Menyembunyikan output error PHP langsung agar tidak merusak format JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: *");
 header("Content-Type: application/json; charset=UTF-8");
 
-// Menyertakan file koneksi database (sesuaikan nama file koneksi Anda, misal: koki.php, db.php, atau koneksi.php)
-include 'db_connect.php'; 
+try {
+    require_once 'db_connect.php';
 
-// Memeriksa apakah request menggunakan metode POST
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    
-    // Mendapatkan ID produk dari parameter POST yang dikirim oleh Flutter
-    $id = isset($_POST['id']) ? mysqli_real_escape_string($conn, $_POST['id']) : '';
+    $db = isset($conn) ? $conn : (isset($koneksi) ? $koneksi : null);
 
-    // Validasi jika ID kosong
-    if (empty($id)) {
-        echo json_encode([
-            "success" => false,
-            "message" => "ID produk tidak boleh kosong."
-        ]);
+    if (!$db) {
+        echo json_encode(["success" => false, "message" => "Koneksi database gagal!"]);
         exit();
     }
 
-    // (Opsional) Ambil nama file gambar terlebih dahulu jika Anda ingin 
-    // menghapus file gambarnya juga dari folder server agar tidak menumpuk.
-    $query_img = mysqli_query($conn, "SELECT gambar_url FROM produk WHERE id = '$id'");
-    if ($row = mysqli_fetch_assoc($query_img)) {
-        $gambar = $row['gambar_url'];
-        // Jika file gambarnya ada di folder images, hapus file fisiknya
-        if (!empty($gambar) && file_exists("images/$gambar")) {
-            unlink("images/$gambar");
+    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        $id = $_POST['id'] ?? null;
+
+        if (empty($id) || $id === 'null') {
+            echo json_encode(["success" => false, "message" => "ID Produk tidak ditemukan!"]);
+            exit();
         }
-    }
 
-    // Query untuk menghapus data produk berdasarkan ID dari database
-    $query = "DELETE FROM produk WHERE id = '$id'";
-    $execute = mysqli_query($conn, $query);
+        $query = "DELETE FROM produk WHERE id = '$id'";
 
-    if ($execute) {
-        // Jika penghapusan berhasil
-        echo json_encode([
-            "success" => true,
-            "message" => "Produk berhasil dihapus."
-        ]);
+        if (mysqli_query($db, $query)) {
+            echo json_encode(["success" => true, "message" => "Produk berhasil dihapus!"]);
+        } else {
+            echo json_encode(["success" => false, "message" => "Gagal menghapus produk: " . mysqli_error($db)]);
+        }
     } else {
-        // Jika query gagal dieksekusi
-        echo json_encode([
-            "success" => false,
-            "message" => "Gagal menghapus produk dari database: " . mysqli_error($conn)
-        ]);
+        echo json_encode(["success" => false, "message" => "Metode request harus POST"]);
     }
-
-} else {
-    // Jika diakses selain menggunakan metode POST
+} catch (\Throwable $e) {
+    http_response_code(200);
     echo json_encode([
-        "success" => false,
-        "message" => "Metode request tidak valid."
+        "success" => false, 
+        "message" => "Error PHP/Database: " . $e->getMessage()
     ]);
+}
+
+if ($db) {
+    $db->close();
 }
 ?>

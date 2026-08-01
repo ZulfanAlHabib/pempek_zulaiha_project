@@ -54,6 +54,7 @@ class HomeScreen extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.network(
+                    headers: ApiConfig.headers,
                     '${ApiConfig.baseUrl}/images/$gambar',
                     height: 200,
                     width: double.infinity,
@@ -207,6 +208,7 @@ class HomeScreen extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
+              headers: ApiConfig.headers,
               '${ApiConfig.baseUrl}/images/logo.png',
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
@@ -339,12 +341,14 @@ class HomeScreen extends StatelessWidget {
                                 String bannerName =
                                     controller.bannerList[index];
                                 return Image.network(
+                                  headers: ApiConfig.headers,
                                   '${ApiConfig.baseUrl}/images/$bannerName.png',
                                   width: double.infinity,
                                   height: double.infinity,
                                   fit: BoxFit.fill,
                                   errorBuilder: (context, error, stackTrace) {
                                     return Image.network(
+                                      headers: ApiConfig.headers,
                                       '${ApiConfig.baseUrl}/images/$bannerName.jpg',
                                       width: double.infinity,
                                       height: double.infinity,
@@ -676,6 +680,7 @@ class HomeScreen extends StatelessWidget {
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(15)),
                   child: Image.network(
+                    headers: ApiConfig.headers,
                     '${ApiConfig.baseUrl}/images/$gambarProduk',
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => const Icon(

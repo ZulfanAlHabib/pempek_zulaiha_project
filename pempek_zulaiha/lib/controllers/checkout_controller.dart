@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api_config.dart';
+import 'keranjang_controller.dart';
+import 'home_controller.dart'; // IMPORT HOME CONTROLLER UNTUK KOSONGKAN BADGE APPLIKASI
 
 class CheckoutController extends GetxController {
   // Menerima parameter dari CheckoutScreen
@@ -32,12 +34,15 @@ class CheckoutController extends GetxController {
   var fileName = Rxn<String>();
   PlatformFile? selectedFile;
 
-  // Fungsi untuk memilih bukti pembayaran (File / Gambar)
+  // Fungsi untuk memilih bukti pembayaran (File / Gambar) dengan penanganan pencegah Crash Android
   Future<void> pickFile() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+        allowMultiple: false,
+        withData:
+            true, // Penting agar byte terisi jika path terproteksi di Android
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -46,8 +51,8 @@ class CheckoutController extends GetxController {
       }
     } catch (e) {
       Get.snackbar(
-        'Error',
-        'Gagal memilih file: $e',
+        'Gagal Memilih File',
+        'Terjadi kesalahan saat memilih file: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -74,25 +79,49 @@ class CheckoutController extends GetxController {
       // 1. CEK DULU MEMORI LOCAL (SharedPreferences) UNTUK MENDAPATKAN USER_ID YANG SEDANG LOGIN
       final prefs = await SharedPreferences.getInstance();
 
-      // Mengambil ID login nyata dari SharedPreferences
       String? sessionUserId = prefs.getString('id') ??
           prefs.getInt('id')?.toString() ??
           prefs.getString('user_id') ??
           prefs.getInt('user_id')?.toString();
 
-      // Jika SharedPreferences menemukan ID valid, gunakan ID tersebut.
-      // Jika tidak, baru gunakan parameter userId bawaan dari screen.
       String finalUserId = (sessionUserId != null && sessionUserId.isNotEmpty)
           ? sessionUserId
           : userId;
 
-      // Debugging log untuk memastikan ID yang terkirim di Debug Console
       print('====================================');
       print('DEBUG CHECKOUT USER ID: $finalUserId');
       print('====================================');
 
+      // -------------------------------------------------------------------
+      // VALIDASI: CEK APAKAH USER ADALAH TAMU (BELUM LOGIN)
+      // -------------------------------------------------------------------
+      if (finalUserId.isEmpty ||
+          finalUserId == '0' ||
+          finalUserId == 'null' ||
+          finalUserId == 'guest') {
+        isUploading.value = false;
+        Get.defaultDialog(
+          title: "Login Diperlukan",
+          titleStyle: const TextStyle(fontWeight: FontWeight.bold),
+          middleText:
+              "Anda harus masuk ke akun terlebih dahulu untuk mengirim pesanan.",
+          textConfirm: "Login Sekarang",
+          textCancel: "Batal",
+          confirmTextColor: Colors.white,
+          buttonColor: Colors.orange[700],
+          onConfirm: () {
+            Get.back(); // Tutup dialog
+            Get.toNamed('/login'); // Navigasi ke halaman login
+          },
+        );
+        return; // Hentikan eksekusi jika pengguna adalah tamu
+      }
+
       var uri = Uri.parse('${ApiConfig.baseUrl}/checkout.php');
       var request = http.MultipartRequest('POST', uri);
+
+      // Header bypass Ngrok
+      request.headers['ngrok-skip-browser-warning'] = 'true';
 
       // Masukkan field data pesanan
       request.fields['user_id'] = finalUserId;
@@ -101,19 +130,31 @@ class CheckoutController extends GetxController {
       request.fields['alamat'] = alamat;
       request.fields['latitude'] = latitude;
       request.fields['longitude'] = longitude;
-      request.fields['total_harga'] = totalHarga.toString();
+
+      // Kirim total_harga berupa angka bulat murni
+      request.fields['total_harga'] = totalHarga.toInt().toString();
 
       // Ubah list keranjang menjadi string JSON agar bisa dibaca PHP
       request.fields['items'] = jsonEncode(keranjang);
 
-      // Lampirkan file bukti pembayaran jika ada
-      if (selectedFile != null && selectedFile!.path != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'bukti_pembayaran',
-            selectedFile!.path!,
-          ),
-        );
+      // Lampirkan file bukti pembayaran (Aman dari null path)
+      if (selectedFile != null) {
+        if (selectedFile!.path != null && selectedFile!.path!.isNotEmpty) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'bukti_pembayaran',
+              selectedFile!.path!,
+            ),
+          );
+        } else if (selectedFile!.bytes != null) {
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'bukti_pembayaran',
+              selectedFile!.bytes!,
+              filename: selectedFile!.name,
+            ),
+          );
+        }
       }
 
       // Kirim request ke server
@@ -121,8 +162,33 @@ class CheckoutController extends GetxController {
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
+        if (response.body.trim().startsWith('<')) {
+          Get.snackbar(
+            'Error Server',
+            'Respon checkout bermasalah (HTML Error)',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+          return;
+        }
+
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
+          // 1. Bersihkan list lokal checkout
+          keranjang.clear();
+
+          // 2. KOSONGKAN STATE KERANJANG UTAMA (KERANJANG CONTROLLER)
+          if (Get.isRegistered<KeranjangController>()) {
+            Get.find<KeranjangController>().bersihkanKeranjang();
+          }
+
+          // 3. KOSONGKAN KERANJANG PADA HOME CONTROLLER AGAR BADGE ANGKA HEADER MERAH JADI 0
+          if (Get.isRegistered<HomeController>()) {
+            final homeController = Get.find<HomeController>();
+            homeController.keranjangList.clear();
+            homeController.keranjangList.refresh();
+          }
+
           Get.snackbar(
             'Sukses',
             'Pesanan berhasil dikirim! Menunggu konfirmasi admin.',

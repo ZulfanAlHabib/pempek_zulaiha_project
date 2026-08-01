@@ -21,18 +21,14 @@ try {
         $id             = $_POST['id'] ?? $_POST['id_produk'] ?? null;
         $nama           = $_POST['nama_produk'] ?? '';
         $harga_raw      = $_POST['harga'] ?? '0';
-        
-        // Olah angka harga secara murni tanpa terganggu desimal
-        $harga          = (int)round((float)$harga_raw);
-        
+        $harga          = preg_replace('/[^0-9]/', '', $harga_raw);
         $deskripsi      = $_POST['deskripsi'] ?? '-';
-        $stok_raw       = $_POST['stok'] ?? '0';
-        $stok           = (int)round((float)$stok_raw);
+        $stok           = isset($_POST['stok']) ? (int)preg_replace('/[^0-9]/', '', $_POST['stok']) : 0;
         $kategori_input = $_POST['kategori'] ?? 'Makanan';
 
         // Validasi data penting
-        if (empty($id) || $id === 'null' || empty($nama) || $harga <= 0) {
-            echo json_encode(["success" => false, "message" => "Data ID, Nama, dan Harga valid wajib diisi!"]);
+        if (empty($id) || $id === 'null' || empty($nama) || empty($harga)) {
+            echo json_encode(["success" => false, "message" => "Data ID, Nama, dan Harga wajib diisi!"]);
             exit();
         }
 

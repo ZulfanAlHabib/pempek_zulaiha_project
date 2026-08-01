@@ -50,6 +50,7 @@ class EditProduk extends StatelessWidget {
                         : ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: Image.network(
+                              headers: ApiConfig.headers,
                               '${ApiConfig.baseUrl}/images/$gambarLama',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>

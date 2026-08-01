@@ -51,14 +51,27 @@ class HomeController extends GetxController {
   Future<void> fetchProduk() async {
     isLoading.value = true;
     try {
-      final url = Uri.parse('${ApiConfig.baseUrl}/get_produk.php');
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final url = Uri.parse('${ApiConfig.baseUrl}/get_produk.php?t=$timestamp');
+      final response = await http.get(
+        url,
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
+        if (response.body.trim().startsWith('<')) {
+          Get.snackbar(
+              'Error Server', 'Respon get_produk bermasalah (HTML Error)',
+              backgroundColor: Colors.red, colorText: Colors.white);
+          return;
+        }
+
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
           produkList.assignAll(data['data']);
           applyFilter();
+          produkList.refresh();
+          filteredProdukList.refresh();
         }
       }
     } catch (e) {
@@ -76,7 +89,10 @@ class HomeController extends GetxController {
 
     var filtered = produkList.where((produk) {
       String nama = (produk['nama_produk'] ?? '').toString().toLowerCase();
-      String kategori = (produk['kategori'] ?? produk['jenis'] ?? '')
+      String kategori = (produk['kategori'] ??
+              produk['jenis'] ??
+              produk['nama_kategori'] ??
+              '')
           .toString()
           .toLowerCase();
       String deskripsi = (produk['deskripsi'] ?? '').toString().toLowerCase();
@@ -122,6 +138,7 @@ class HomeController extends GetxController {
     }).toList();
 
     filteredProdukList.assignAll(filtered);
+    filteredProdukList.refresh();
   }
 
   List<dynamic> get rekomendasiProdukList {
@@ -150,9 +167,12 @@ class HomeController extends GetxController {
     return sortedList;
   }
 
+  // Format Rupiah yang menangani angka desimal (misal "4000.00")
   String formatRupiah(String price) {
     try {
-      return 'Rp ${int.parse(price)}';
+      double parsedDouble = double.parse(price);
+      int valInt = parsedDouble.toInt();
+      return 'Rp $valInt';
     } catch (e) {
       return 'Rp $price';
     }
@@ -172,8 +192,19 @@ class HomeController extends GetxController {
   Future<void> hapusProduk(String id) async {
     try {
       final url = Uri.parse('${ApiConfig.baseUrl}/hapus_produk.php');
-      final response = await http.post(url, body: {'id': id});
+      final response = await http.post(
+        url,
+        headers: {'ngrok-skip-browser-warning': 'true'},
+        body: {'id': id},
+      );
+
       if (response.statusCode == 200) {
+        if (response.body.trim().startsWith('<')) {
+          Get.snackbar('Error Server', 'Respon server bermasalah (HTML Error)',
+              backgroundColor: Colors.red, colorText: Colors.white);
+          return;
+        }
+
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
           Get.snackbar('Sukses', 'Produk berhasil dihapus',
@@ -183,6 +214,9 @@ class HomeController extends GetxController {
           Get.snackbar('Gagal', data['message'] ?? 'Gagal menghapus',
               backgroundColor: Colors.red, colorText: Colors.white);
         }
+      } else {
+        Get.snackbar('Error', 'Server status: ${response.statusCode}',
+            backgroundColor: Colors.red, colorText: Colors.white);
       }
     } catch (e) {
       Get.snackbar('Error', 'Error: $e',

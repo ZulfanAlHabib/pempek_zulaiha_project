@@ -34,6 +34,7 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             // Memanggil gambar logo.png menggunakan ApiConfig
             Image.network(
+              headers: ApiConfig.headers,
               '${ApiConfig.baseUrl}/images/logo.png',
               width: 150,
               height: 150,

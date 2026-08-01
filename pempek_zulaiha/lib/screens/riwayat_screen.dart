@@ -18,9 +18,24 @@ class RiwayatScreen extends StatelessWidget {
     String tanggal = item['created_at'] ?? item['tanggal'] ?? '-';
     String buktiBayar = item['bukti_pembayaran'] ?? '';
 
-    // Kita bungkus status saat ini dengan .obs (reactive variable lokal)
-    // agar dropdown admin bisa langsung terupdate tampilannya tanpa merusak struktur UI
-    RxString statusCurrent = (item['status'] ?? 'menunggu').toString().obs;
+    // Perbaikan URL Gambar agar tidak terduplikasi path /uploads/
+    String buktiBayarUrl = '';
+    if (buktiBayar.isNotEmpty) {
+      if (buktiBayar.startsWith('http')) {
+        buktiBayarUrl = buktiBayar;
+      } else if (buktiBayar.startsWith('uploads/')) {
+        buktiBayarUrl = '${ApiConfig.baseUrl}/$buktiBayar';
+      } else {
+        buktiBayarUrl = '${ApiConfig.baseUrl}/uploads/$buktiBayar';
+      }
+    }
+
+    // Mengambil status dengan proteksi jika kosong/null agar default menjadi 'menunggu'
+    String statusAwal =
+        (item['status'] != null && item['status'].toString().trim().isNotEmpty)
+            ? item['status'].toString()
+            : 'menunggu';
+    RxString statusCurrent = statusAwal.obs;
 
     showModalBottomSheet(
       context: context,
@@ -63,25 +78,30 @@ class RiwayatScreen extends StatelessWidget {
                         color: Colors.brown,
                       ),
                     ),
-                    // BADGE STATUS DENGAN WARNA DINAMIS
-                    Obx(() => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
+                    // BADGE STATUS DENGAN TEKS YANG SELALU TAMPIL JELAS
+                    Obx(() {
+                      String teksStatus = statusCurrent.value.trim().isEmpty
+                          ? 'MENUNGGU'
+                          : statusCurrent.value.toUpperCase();
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              controller.getStatusBgColor(statusCurrent.value),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          teksStatus,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
                             color: controller
-                                .getStatusBgColor(statusCurrent.value),
-                            borderRadius: BorderRadius.circular(12),
+                                .getStatusTextColor(statusCurrent.value),
                           ),
-                          child: Text(
-                            statusCurrent.value.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: controller
-                                  .getStatusTextColor(statusCurrent.value),
-                            ),
-                          ),
-                        )),
+                        ),
+                      );
+                    }),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -166,10 +186,11 @@ class RiwayatScreen extends StatelessWidget {
                             ),
                           )
                         : Image.network(
-                            '${ApiConfig.baseUrl}/uploads/$buktiBayar',
-                            height: 150,
+                            headers: ApiConfig.headers,
+                            buktiBayarUrl,
+                            height: 220,
                             width: double.infinity,
-                            fit: BoxFit.cover,
+                            fit: BoxFit.contain,
                             errorBuilder: (context, error, stackTrace) =>
                                 Container(
                               padding: const EdgeInsets.all(12),
@@ -330,6 +351,7 @@ class RiwayatScreen extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
+              headers: ApiConfig.headers,
               '${ApiConfig.baseUrl}/images/logo.png',
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>

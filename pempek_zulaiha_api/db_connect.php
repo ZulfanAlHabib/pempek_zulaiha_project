@@ -1,4 +1,15 @@
 <?php
+// Header CORS agar tidak diblokir Ngrok & Flutter
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept, ngrok-skip-browser-warning");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+
+// Tangani request preflight OPTIONS dari Flutter/Browser
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 $host = "localhost";
 $user = "root";       // Default XAMPP adalah root
 $pass = "";           // Default XAMPP adalah kosong (tanpa spasi)

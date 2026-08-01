@@ -22,7 +22,7 @@ class RegisterScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: controller.emailController,
+              controller: controller.usernameController,
               decoration: const InputDecoration(
                   labelText: "Email", border: OutlineInputBorder()),
               keyboardType: TextInputType.emailAddress,

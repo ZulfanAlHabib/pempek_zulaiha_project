@@ -35,6 +35,7 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.network(
+              headers: ApiConfig.headers,
               '${ApiConfig.baseUrl}/images/logo.png',
               width: 150,
               height: 150,

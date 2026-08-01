@@ -42,6 +42,7 @@ class KeranjangScreen extends StatelessWidget {
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.network(
+                          headers: ApiConfig.headers,
                           '${ApiConfig.baseUrl}/images/${item['gambar']}',
                           width: 50,
                           height: 50,

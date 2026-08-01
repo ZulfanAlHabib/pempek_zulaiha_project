@@ -53,6 +53,12 @@ class KeranjangController extends GetxController {
     return total;
   }
 
+  // FUNGSI UNTUK MENGOSONGKAN KERANJANG
+  void bersihkanKeranjang() {
+    keranjang.clear();
+    update();
+  }
+
   void kurangiJumlah(int index) {
     var item = keranjang[index];
     if (item['jumlah'] > 1) {
